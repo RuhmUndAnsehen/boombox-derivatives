@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #    Financial instrument library for Boombox
-#    Copyright (C) 2021-2022 RuhmUndAnsehen
+#    Copyright (C) 2022 RuhmUndAnsehen
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
