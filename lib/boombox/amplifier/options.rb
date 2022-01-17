@@ -164,8 +164,7 @@ module Boombox
 
     def _node_adj(stepno, ndowns, value)
       if _style == :american || stepno == _steps
-        #~ [value, _terminal_val(stepno, ndowns)].max
-        _max(value, _terminal_val(stepno, ndowns))
+        [value, _terminal_val(stepno, ndowns)].max
       elsif _style == :european
         value
       else
@@ -181,10 +180,6 @@ module Boombox
     def _target
       _steps.succ.times.to_a.map! { |i| _node_adj(_steps, i, 0) }
     end
-
-    private
-
-    def _max(val_a, val_b) = val_a > val_b ? val_a : val_b
   end
 
   ##

@@ -58,11 +58,12 @@ end
 
 RSpec.shared_examples 'iv_solver_eu' do |engine_class|
   engine = engine_class
-                         .new
-                         .underlying!(
-                            Boombox::Underlying.new(100, Time.new(2000, 1, 1)))
-                         .rate!(0.07)
-                         .expiry!(Time.new(2000, 1, 1) + 365 * 12 * 3600)
+           .new
+           .underlying!(
+             Boombox::Underlying.new(100, Time.new(2000, 1, 1))
+           )
+           .rate!(0.07)
+           .expiry!(Time.new(2000, 1, 1) + 365 * 12 * 3600)
   solver = described_class.new.param(:iv)
   context 'with given parameter range' do
     solver2 = solver.a0(0.2).b0(0.31)
@@ -97,11 +98,12 @@ end
 
 RSpec.shared_examples 'iv_solver_us' do |engine_class|
   engine = engine_class
-                        .new.style!(:american)
-                        .steps!(25)
-                        .underlying!(Boombox::Underlying.new(100, Time.new(2000, 1, 1)))
-                        .rate!(0.07)
-                        .expiry!(Time.new(2000, 1, 1) + 365 * 12 * 3600)
+           .new.style!(:american)
+           .steps!(25)
+           .underlying!(Boombox::Underlying.new(100,
+                                                Time.new(2000, 1, 1)))
+           .rate!(0.07)
+           .expiry!(Time.new(2000, 1, 1) + 365 * 12 * 3600)
   solver = described_class.new.param(:iv)
   context 'with given parameter range' do
     solver2 = solver.a0(0.2).b0(0.31)
