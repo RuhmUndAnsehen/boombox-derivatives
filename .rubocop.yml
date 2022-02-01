@@ -1,4 +1,12 @@
+inherit_mode:
+  merge:
+    - Exclude
+
 AllCops:
+  Exclude:
+    - 'bin/*'
+    - 'Rakefile'
+    - '**/*.rake'
   TargetRubyVersion: 3.0
 
 Style/StringLiterals:
@@ -14,6 +22,4 @@ Layout/LineLength:
 
 Metrics/BlockLength:
   Exclude:
-    - 'Rakefile'
-    - '**/*.rake'
     - 'spec/**/*.rb'
