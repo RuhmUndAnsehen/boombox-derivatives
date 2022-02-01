@@ -16,10 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-require 'bigdecimal'
-require 'bigdecimal/util'
-
-require_relative 'dsl'
+require_relative 'common'
 
 module Boombox
   Underlying = Struct.new(:price, :time)
@@ -27,23 +24,12 @@ module Boombox
 
   ##
   # Superclass for options pricing engines
-  class OptionsEngine < EngineDSL
-    param :expiry
+  class OptionsEngine < ForwardInstrument
     param :iv, &:to_d
-    param :price, &:to_d
-    param :rate, &:to_d
     param :strike, &:to_d
     param :type, default: :call
-    param :underlying
-    param :yield, default: 0, &:to_d
 
     alias _carry _rate
-
-    def _underlying_price = _underlying.price.to_d
-
-    def _tte
-      @_tte ||= ((_expiry - _underlying.time).to_d / 365 / 24 / 3600)
-    end
 
     def _type_int
       @_type_int ||= _type == :call ? 1 : -1
