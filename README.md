@@ -2,6 +2,12 @@
 
 Financial instrument library for Boombox
 
+> ## Warning
+>
+> *As also stated in the license, this software comes without any warranty, without even the implied warranty of merchantability or fitness for a particular purpose. No guarantees regarding accuracy or usefulness are made. Especially should no usage of this software be construed as financial or investment advice.*
+> 
+> Use at your own risk.
+
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -31,3 +37,21 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/RuhmUndAnsehen/boombox-amplifier.
+
+## License
+
+   Financial instrument library for Boombox\
+   Copyright (C) 2021--2022 RuhmUndAnsehen
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
