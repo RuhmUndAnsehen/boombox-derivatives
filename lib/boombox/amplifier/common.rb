@@ -28,7 +28,7 @@ module Boombox
 
   ##
   # Common superclass for different kinds of derivatives.
-  class ForwardInstrument < EngineDSL
+  class ForwardInstrumentsEngine < EngineDSL
     param :expiry
     param :price, &:to_d
     param :rate, default: 0, &:to_d

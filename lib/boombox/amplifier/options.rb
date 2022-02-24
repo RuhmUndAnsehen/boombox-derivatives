@@ -25,7 +25,7 @@ module Boombox
 
   ##
   # Superclass for options pricing engines
-  class OptionsEngine < ForwardInstrument
+  class OptionsEngine < ForwardInstrumentsEngine
     param :iv, &:to_d
     param :strike, &:to_d
     param :type, default: :call
