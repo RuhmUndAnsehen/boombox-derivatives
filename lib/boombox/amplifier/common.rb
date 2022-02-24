@@ -26,6 +26,8 @@ module Boombox
   Underlying = Struct.new(:price, :time)
   SECONDS_PA = 365 * 24 * 3600
 
+  ##
+  # Common superclass for different kinds of derivatives.
   class ForwardInstrument < EngineDSL
     param :expiry
     param :price, &:to_d
