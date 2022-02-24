@@ -17,6 +17,7 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 require 'bigdecimal'
+require 'bigdecimal/math'
 require 'bigdecimal/util'
 
 require_relative 'dsl'
