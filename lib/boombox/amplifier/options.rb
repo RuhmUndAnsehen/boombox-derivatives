@@ -17,6 +17,7 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 require_relative 'common'
+require_relative 'refine/to_tensor'
 
 module Boombox
   Underlying = Struct.new(:price, :time)
@@ -202,5 +203,124 @@ module Boombox
       -(d_n / (_steps + 1.to_d / 3.0 + 0.1.to_d / (_steps + 1)))**2 *
         (_steps + 1.to_d / 6.0)
     end
+  end
+
+  ##
+  # Faster BinomialOptionsEngine, but less precise.
+  class FastBinomialEngine < OptionsEngine
+    using Boombox::Refine::ToTensor
+
+    param :iv, &:to_tensor
+    param :price, &:to_tensor
+    param :rate, default: 0.0, &:to_tensor
+    param :steps, default: 123
+    param :strike, &:to_tensor
+    param :style, default: :american
+    param :yield, default: 0.0, &:to_tensor
+
+    def solve_for_price
+      updown = Torch.tensor([[[_p, _p_inv]]], dtype: :double)
+                    .mul!(Torch.exp(_tte.mul(_rate).div!(-_steps)))
+      last1 = last2 = nil
+      last0 = _target
+      _steps.times.reverse_each do |stepno|
+        last2 = last1
+        last1 = last0
+        last0 = _step_adj(stepno, Torch::NN::Functional.conv1d(last0, updown))
+      end
+
+      ContractParams.new(last0.view(1).item, _iv)
+    end
+
+    def _step_adj(stepno, value)
+      if _style == :american || stepno == _steps
+        Torch.cat([value, _terminal_vec(stepno)], dim: 1).amax(dim: 1,
+                                                               keepdim: true)
+      elsif _style == :european
+        value
+      else
+        _style.call(stepno, value)
+      end
+    end
+
+    def _terminal_vec(stepno)
+      downs = Torch.arange(0, stepno + 1, dtype: :double, requires_grad: false)
+      ups = stepno.to_tensor(dtype: :double, requires_grad: false).sub(downs)
+      _up.pow(ups)
+         .mul!(_down.pow(downs))
+         .mul!(_underlying_price)
+         .sub!(_strike)
+         .mul!(_type_int)
+         .view(1, 1, -1)
+    end
+
+    def _target
+      _step_adj(_steps, Torch.zeros([1, 1, _steps + 1], dtype: :double,
+                                                        requires_grad: false))
+    end
+
+    def _underlying_price
+      @_underlying_price ||= super.to_f.to_tensor
+    end
+
+    def _tte
+      @_tte ||= super.to_f.to_tensor
+    end
+  end
+
+  ##
+  # Faster LeisenReimerEngine, but less precise.
+  class FastLREngine < FastBinomialEngine
+    using Boombox::Refine::ToTensor
+
+    def _d1
+      @_d1 ||= _underlying_price.div(_strike).log!
+                                .add!(_carry.sub(_yield)
+                                    .add!(_iv.square.div!(2)).mul!(_tte))
+                                .div!(_iv_timeadj)
+    end
+
+    def _d2
+      @_d2 ||= _d1 - _iv_timeadj
+    end
+
+    def _up
+      @_up ||= Torch.exp(_carry.mul(_tte).div!(_steps)).mul!(_h1).div!(_h2)
+    end
+
+    def _down
+      @_down ||= Torch.exp(_carry.mul(_tte).div!(_steps)).sub(_up.mul(_p))
+                      .div!(_p_inv)
+    end
+
+    def _p = _h2
+    def _p_inv = 1.0.to_tensor.sub(_p)
+
+    def _h1
+      @_h1 ||= _hn(_d1)
+    end
+
+    def _h2
+      @_h2 ||= _hn(_d2)
+    end
+
+    private
+
+    def _hn(d_n)
+      d_n.sign.double
+         .mul(Torch.exp(_hnhelper(d_n)).mul!(-0.25).add!(0.25).sqrt!)
+         .add!(0.5)
+    end
+
+    def _hnhelper(d_n)
+      d_n.div!(3.0.to_tensor.pow!(-1)
+      .add!(_steps)
+      .add!((_steps + 1).to_tensor(dtype: :double).pow!(-1)))
+         .square!
+         .mul!(-1)
+         .mul!(6.0.to_tensor.pow!(-1).add!(_steps))
+    end
+
+    def _iv_timeadj = _iv.mul(_tte.sqrt)
   end
 end
