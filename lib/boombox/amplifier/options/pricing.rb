@@ -26,9 +26,9 @@ module Boombox
   ##
   # Superclass for options pricing engines
   class OptionsEngine < ForwardInstrumentsEngine
-    param :iv, &:to_d
-    param :strike, &:to_d
-    param :type, default: :call
+    param :iv, to: :to_d
+    param :strike, to: :to_d
+    param :type, default: :call, is: %i[put call].method(:include?)
 
     alias _carry _rate
 
@@ -53,7 +53,7 @@ module Boombox
     end
 
     def _d1
-      @_d1 ||= (Math.log(_underlying_price / _strike) +
+      @_d1 ||= (Math.log(_spot / _strike) +
                   (_carry - _yield + _iv**2 / 2) * _tte) / _iv_timeadj
     end
 
@@ -77,26 +77,24 @@ module Boombox
     end
 
     def _gamma
-      @_gamma ||= _divadj_phi! / _underlying_price / _iv / _tte
+      @_gamma ||= _divadj_phi! / _spot / _iv / _tte
     end
 
     def _vega
-      @_vega ||= _divadj_phi! * _underlying_price * Math.sqrt(_tte)
+      @_vega ||= _divadj_phi! * _spot * Math.sqrt(_tte)
     end
 
     def _theta
-      @_theta ||= -_spot_helper * self.class.phi!(_d1) * _iv / 2 /
-                  Math.sqrt(_tte) - _rate * _target_helper +
-                  _yield * _spot_helper
+      @_theta ||=
+        -_spot_helper * self.class.phi!(_d1) * _iv / 2 / Math.sqrt(_tte) -
+        _rate * _target_helper + _yield * _spot_helper
     end
 
     def _rho
       @_rho ||= _target_helper * _tte
     end
 
-    def solve_for_iv; end
-
-    def solve_for_price
+    def solve_for_value
       price = _spot_helper - _target_helper
       ContractParams.new(price, _iv, _delta, _gamma, _rho, _theta, _vega)
     end
@@ -105,7 +103,7 @@ module Boombox
 
     def _divadj = Math.exp(-_yield * _tte)
     def _divadj_phi! = self.class.phi!(_d1) * _divadj
-    def _spot_helper = _underlying_price * _delta
+    def _spot_helper = _spot * _delta
 
     def _target_helper = _type_int * self.class.phi(_type_int * _d2) * _strike *
       Math.exp(-_rate * _tte)
@@ -117,12 +115,11 @@ module Boombox
   # Currently only provides an interface, but will later feature CRR binomial
   # trees.
   class BinomialOptionsEngine < OptionsEngine
-    param :steps, default: 123
-    param :style, default: :american
+    param :steps, default: 123, is: :positive?
+    param :style, default: :american,
+                  is: %i[american european].method(:include?)
 
-    def solve_for_iv; end
-
-    def solve_for_price
+    def solve_for_value
       last1 = last2 = nil
       last0 = _target
       _steps.times.reverse_each do |stepno|
@@ -137,7 +134,7 @@ module Boombox
       end
       raise 'price Array contains more than one element' if last0.size != 1
 
-      d_s = (_up - _down) * _underlying_price
+      d_s = (_up - _down) * _spot
       d_s_d = d_s * _down
       d_s_u = d_s * _up
       delta_d = (last2[1] - last2[2]) / d_s_d
@@ -160,7 +157,7 @@ module Boombox
     end
 
     def _terminal_val(stepno, ndowns)
-      base_val = _underlying_price * _up**(stepno - ndowns) * _down**ndowns
+      base_val = _spot * _up**(stepno - ndowns) * _down**ndowns
       _type_int * (base_val - _strike)
     end
 
@@ -173,6 +170,8 @@ module Boombox
   # Leisen-Reimer options pricing engine.
   class LeisenReimerEngine < BinomialOptionsEngine
     include BlackScholesParams
+
+    param :steps, default: 123, is: :positive?, is_not: :even?
 
     def _up
       @_up ||= Math.exp(_carry * _tte / _steps) * _h1 / _h2
@@ -208,19 +207,22 @@ module Boombox
   ##
   # Faster BinomialOptionsEngine, but less precise.
   class FastBinomialEngine < OptionsEngine
+    TO_TENSOR = ->(val) { val.to_f.to_tensor }
+
     using Boombox::Refine::ToTensor
 
-    param :iv, &:to_tensor
-    param :price, &:to_tensor
-    param :rate, default: 0.0, &:to_tensor
-    param :steps, default: 123
-    param :strike, &:to_tensor
-    param :style, default: :american
-    param :yield, default: 0.0, &:to_tensor
+    param :iv, to: TO_TENSOR
+    param :value, to: TO_TENSOR
+    param :rate, default: 0.0, to: TO_TENSOR
+    param :spot, to: TO_TENSOR
+    param :steps, default: 123, is: :positive?
+    param :strike, to: TO_TENSOR
+    param :style, default: :american,
+                  is: %i[american european].method(:include?)
+    param :yield, default: 0.0, to: TO_TENSOR
 
-    def solve_for_price
-      updown = Torch.tensor([[[_p, _p_inv]]], dtype: :double)
-                    .mul!(Torch.exp(_tte.mul(_rate).div!(-_steps)))
+    def solve_for_value
+      updown = _updown
       last1 = last2 = nil
       last0 = _target
       _steps.times.reverse_each do |stepno|
@@ -248,7 +250,7 @@ module Boombox
       ups = stepno.to_tensor(dtype: :double, requires_grad: false).sub(downs)
       _up.pow(ups)
          .mul!(_down.pow(downs))
-         .mul!(_underlying_price)
+         .mul!(_spot)
          .sub!(_strike)
          .mul!(_type_int)
          .view(1, 1, -1)
@@ -259,11 +261,12 @@ module Boombox
                                                         requires_grad: false))
     end
 
-    def _underlying_price
-      @_underlying_price ||= super.to_f.to_tensor
+    def _updown
+      @_updown ||= Torch.tensor([[[_p, _p_inv]]], dtype: :double)
+                        .mul!(Torch.exp(_tte.mul(_rate).div!(-_steps)))
     end
 
-    def _tte
+    def _tte(_ = nil)
       @_tte ||= super.to_f.to_tensor
     end
   end
@@ -273,11 +276,13 @@ module Boombox
   class FastLREngine < FastBinomialEngine
     using Boombox::Refine::ToTensor
 
+    param :steps, default: 123, is: :positive?, is_not: :even?
+
     def _d1
-      @_d1 ||= _underlying_price.div(_strike).log!
-                                .add!(_carry.sub(_yield)
-                                    .add!(_iv.square.div!(2)).mul!(_tte))
-                                .div!(_iv_timeadj)
+      @_d1 ||=
+        _spot.div(_strike).log!
+             .add!(_carry.sub(_yield).add!(_iv.square.div!(2)).mul!(_tte))
+             .div!(_iv_timeadj)
     end
 
     def _d2

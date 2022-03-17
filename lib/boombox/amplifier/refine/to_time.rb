@@ -16,4 +16,20 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-require_relative 'options/pricing'
+require 'boombox/amplifier/version'
+
+module Boombox
+  module Refine
+    ##
+    # Using this module will define a #to_time method in Numeric, Time.
+    module ToTime
+      refine ::Numeric do
+        def to_time = ::Time.at(self)
+      end
+
+      refine ::Time do
+        def to_time = self
+      end
+    end
+  end
+end

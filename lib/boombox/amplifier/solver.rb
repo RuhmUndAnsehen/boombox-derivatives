@@ -30,19 +30,24 @@ module Boombox
     # Thrown when the initial estimates have equal signs.
     class EqualSignsError < ArgumentError; end
 
-    param :a0, &:to_d
-    param :b0, &:to_d
-    param :function
-    param :max_iterations, default: 42
-    param :tolerance, default: 1e-6, &:to_d
+    param :a0, to: :to_d
+    param :b0, to: :to_d
+    param :max_iterations, default: 42, is: :positive?
+    param :tolerance, default: 1e-6, to: :to_d, is_not: :negative?
 
     def _fn(*args, **opts, &block)
-      _function.call(*args, **opts, &block)
+      unless @_fn
+        raise NoMethodError, 'implement this function or pass a block to #solve'
+      end
+
+      @_fn.call(*args, **opts, &block)
     end
 
-    def solve
+    def solve(&block)
       reset
+      initialize_defaults
 
+      @_fn = block
       @_ak, @_bk = initial_estimates
       @_fak, @_fbk = assert_unequal_signs(@_ak, @_bk)
       ensure_params_order
@@ -170,9 +175,10 @@ module Boombox
                        BigMath.sqrt(BigMath.PI(PRECISION) * eps, PRECISION)
                    }
     param :engine
-    param :epsilon, default: 1e-8, &:to_d
-    param :precision, default: 30
-    param :steps, default: 42
+    param :epsilon, default: 1e-8, to: :to_d, is: :positive?
+    param :precision, default: 30, is_not: :negative?
+    param :steps, default: 42, is: :positive?
+    param :contract_value, to: :to_d
 
     def solve = solve_for(:iv)
 
@@ -180,7 +186,7 @@ module Boombox
       iv = (_iv_l.._iv_u)
            .step(_step_width)
            .map { |v| _engine.iv(v).solve_for(:iv) }
-           .map { |c| _delta_fam(c.price - _engine._price) * c.iv * c.vega }
+           .map { |c| _delta_fam(c.price - _contract_value) * c.iv * c.vega }
            .each_cons(2).map { |a, b| a + b }
            .each_with_object(_step_width / 2).map(&:*)
            .sum
@@ -188,8 +194,8 @@ module Boombox
     end
 
     def _c
-      @_c ||= _engine._price / Math.exp(-_engine._yield * _engine._tte) /
-              _engine._underlying_price
+      @_c ||= _contract_value / Math.exp(-_engine._yield * _engine._tte) /
+              _engine._spot
     end
 
     def _k
@@ -217,69 +223,15 @@ module Boombox
   # Solver for options parameters following Dekker-Brent
   class OptionsSolver < DekkerBrentSolver
     param :engine
-    param :param, default: :iv
-    param :param_search_adjust, default: 1.1, &:to_d
+    param :param, default: :iv, is: Symbol
+    param :contract_value, to: :to_d
 
-    def initialize(**args)
-      super
-
-      function!(
-        lambda do |pv|
-          _engine.send(_param, pv).solve_for(:price).price - _engine._price
-        end
-      )
+    def _fn(estimate)
+      _engine.with(_param => estimate).solve_for(:value).price - _contract_value
     end
 
-    protected
-
-    def initial_estimates
-      a0, b0 = super
-      return a0, b0 if a0 && b0
-      return approx_estimates unless a0 || b0
-
-      est_u = a0 || b0
-      est_l = est_u / _param_search_adjust
-      search_estimates(est_l, est_u, _fn(est_l), _fn(est_u))
-    end
-
-    private
-
-    def approx_estimates
-      c = _engine._price / _engine._underlying_price
-      k = Math.log(_engine._strike / _engine._underlying_price)
-      est_u, est_l = approx_estimates_h(c, k)
-
-      search_estimates(est_l, est_u, _fn(est_l), _fn(est_u))
-    end
-
-    def approx_estimates_h(param_c, param_k)
-      [_iv_bound(param_c, 1 + Math.exp(param_k)),
-       _iv_bound(param_c, param_k.negative? ? 2 * Math.exp(param_k) : 2)]
-    end
-
-    def search_estimates(est_l, est_u, fest_l, fest_u)
-      if fest_u.negative?
-        est_u, fest_u = search_estimates_h(est_u * _param_search_adjust, fest_u)
-      end
-      if fest_l.positive?
-        est_l, fest_l = search_estimates_h(est_l / _param_search_adjust, fest_l)
-      end
-      return est_l, est_u if (fest_l * fest_u).negative?
-
-      search_estimates(est_l, est_u, fest_l, fest_u)
-    end
-
-    def search_estimates_h(est, fest_old)
-      fest = _fn(est)
-      if (fest * fest_old).negative? || fest.abs < fest_old.abs
-        [est, fest]
-      else
-        [-est, _fn(-est)]
-      end
-    end
-
-    def _iv_bound(ccc, val)
-      -2 / Math.sqrt(_engine._tte) * BSIVSolver.phi_inv((1 - ccc) / val)
+    def solve_for(param, &block)
+      with(param: param).solve(&block)
     end
   end
 end

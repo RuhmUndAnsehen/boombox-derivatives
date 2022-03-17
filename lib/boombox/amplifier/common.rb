@@ -18,9 +18,12 @@
 
 require 'bigdecimal'
 require 'bigdecimal/util'
+require 'date'
+require 'time'
 
 require 'boombox/amplifier/version'
 require_relative 'dsl'
+require_relative 'refine/to_time'
 
 module Boombox
   Underlying = Struct.new(:price, :time)
@@ -29,19 +32,19 @@ module Boombox
   ##
   # Common superclass for different kinds of derivatives.
   class ForwardInstrumentsEngine < EngineDSL
-    param :expiry
-    param :price, &:to_d
-    param :rate, default: 0, &:to_d
-    param :underlying
-    param :yield, default: 0, &:to_d
+    using ::Boombox::Refine::ToTime
 
-    alias maturity expiry
+    param :expiry, to: :to_time
+    param :rate, default: 0, to: :to_d
+    param :spot, to: :to_d
+    param :time, to: :to_time
+    param :yield, default: 0, to: :to_d
+
     alias _maturity _expiry
 
-    def _underlying_price = _underlying.price.to_d
-
-    def _tte
-      @_tte ||= ((_expiry - _underlying.time).to_d / SECONDS_PA)
+    def _tte(time = nil)
+      return ((_expiry - time).to_d / SECONDS_PA) if time
+      @_tte ||= _tte(_time)
     end
     alias _ttm _tte
   end
