@@ -24,8 +24,11 @@ module Boombox
   ##
   # Provides a DSL for parameter initialisation
   class EngineDSL
-    ILLEGAL_VARNAMES = %i[@engine_dirty].freeze
     class << self
+      def varname_illegal?(varname)
+        %i[@engine_dirty].include?(varname)
+      end
+
       def params
         @params ||= {}
         return @params unless superclass.respond_to?(:params)
@@ -38,7 +41,7 @@ module Boombox
       #
       # :call-seq: param(name, **{default:, is:, is_not:, to:}) -> name
       def param(name, **opts)
-        param = ParameterDecl.new(name, **opts)
+        param = ParameterDecl.new(self, name, **opts)
         define_method(param.reader) do
           instance_variable_get(param.varname).value
         end
@@ -49,10 +52,10 @@ module Boombox
 
     ##
     # Storage class for parameter declarations.
-    ParameterDecl = Struct.new(:name, :default, :is, :is_not, :to,
-                               :reader, :varname, :writer) do
-      def initialize(name, **args)
-        super(name,
+    ParameterDecl = Struct.new(:engine_class, :name, :default, :is, :is_not,
+                               :to, :reader, :varname, :writer) do
+      def initialize(engine_class, name, **args)
+        super(engine_class, name,
               args[:default],
               args[:is] || ->(_) { true },
               args[:is_not] || ->(_) { false },
@@ -65,7 +68,7 @@ module Boombox
       end
 
       def assert_validity
-        return unless ILLEGAL_VARNAMES.include?(varname)
+        return unless engine_class.varname_illegal?(varname)
 
         msg = <<~MSG
           Use of instance variable name `#{varname}' is prohibited, please specify
