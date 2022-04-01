@@ -41,12 +41,17 @@ module Boombox
       #
       # :call-seq: param(name, **{default:, is:, is_not:, to:}) -> name
       def param(name, **opts)
-        param = ParameterDecl.new(self, name, **opts)
+        declare_param(ParameterDecl.new(self, name, **opts))
+      end
+
+      private
+
+      def declare_param(param)
         define_method(param.reader) do
           instance_variable_get(param.varname).value
         end
-        (@params ||= {})[name] = param
-        name
+        (@params ||= {})[param.name] = param
+        param.name
       end
     end
 
@@ -76,6 +81,8 @@ module Boombox
         MSG
         raise NameError, msg, varname
       end
+
+      def new(*args, **opts, &block) = Parameter.new(*args, **opts, &block)
     end
 
     ##
@@ -206,7 +213,7 @@ module Boombox
       if instance_variable_defined?(decl.varname)
         instance_variable_get(decl.varname)
       else
-        instance_variable_set(decl.varname, Parameter.new(decl, value, **opt))
+        instance_variable_set(decl.varname, decl.new(decl, value, **opt))
       end
     end
 
