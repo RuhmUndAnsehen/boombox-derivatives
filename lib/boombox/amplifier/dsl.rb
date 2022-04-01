@@ -16,9 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-require 'observer'
-
-require 'boombox/amplifier/version'
+require_relative 'dsl/aux'
 
 module Boombox
   ##
@@ -52,92 +50,6 @@ module Boombox
         end
         (@params ||= {})[param.name] = param
         param.name
-      end
-    end
-
-    ##
-    # Storage class for parameter declarations.
-    ParameterDecl = Struct.new(:engine_class, :name, :default, :is, :is_not,
-                               :to, :reader, :varname, :writer) do
-      def initialize(engine_class, name, **args)
-        super(engine_class, name,
-              args[:default],
-              args[:is] || ->(_) { true },
-              args[:is_not] || ->(_) { false },
-              args[:to] || :itself,
-              args[:reader] || :"_#{name}",
-              args[:varname] || :"@#{name}")
-
-        assert_validity
-        freeze
-      end
-
-      def assert_validity
-        return unless engine_class.varname_illegal?(varname)
-
-        msg = <<~MSG
-          Use of instance variable name `#{varname}' is prohibited, please specify
-          explicitly (`varname: @another_name')
-        MSG
-        raise NameError, msg, varname
-      end
-
-      def new(*args, **opts, &block) = Parameter.new(*args, **opts, &block)
-    end
-
-    ##
-    # Raised if a parameter was referenced but not declared.
-    class UndeclaredParameterError < ArgumentError
-      def initialize(name)
-        super("undeclared parameter: #{name.inspect}")
-      end
-    end
-
-    ##
-    # Engine parameters. Provides checks, and support for the observer pattern.
-    class Parameter
-      include Observable
-
-      attr_reader :decl, :value
-      alias call value
-
-      def <<(observer)
-        add_observer(observer)
-        self
-      end
-
-      def initialize(decl, value = nil, skip_init: false)
-        @decl = decl
-        @value = decl.to.to_proc[value || decl.default] unless skip_init
-      end
-
-      def assert_validity
-        return if valid?
-
-        raise ArgumentError,
-              "parameter `#{decl.name} is invalid: #{value.inspect}"
-      end
-
-      def is?(it_is = decl.is)
-        it_is == value ||
-          (it_is.is_a?(Module) && value.is_a?(it_is)) ||
-          it_is.to_proc[value]
-      end
-
-      def not?(is_not = decl.is_not) = !is?(is_not)
-
-      def name = decl.name
-
-      def value=(newval)
-        changed
-        notify_observers(name, value)
-        @value = decl.to.to_proc[newval]
-      end
-
-      def valid?
-        not? && is?
-      rescue StandardError
-        false
       end
     end
 
