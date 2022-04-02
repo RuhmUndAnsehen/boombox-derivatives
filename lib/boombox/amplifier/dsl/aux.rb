@@ -19,23 +19,22 @@
 require 'observer'
 
 require 'boombox/amplifier/version'
+require_relative 'proxy'
 
 module Boombox
-  ##
-  # Provides a DSL for parameter initialisation
-  class EngineDSL
+  module DSL
     ##
-    # Storage class for parameter declarations.
-    ParameterDecl = Struct.new(:engine_class, :name, :default, :is, :is_not,
-                               :to, :reader, :varname, :writer) do
-      def initialize(engine_class, name, **args)
-        super(engine_class, name,
-              args[:default],
-              args[:is] || ->(_) { true },
-              args[:is_not] || ->(_) { false },
-              args[:to] || :itself,
-              args[:reader] || :"_#{name}",
-              args[:varname] || :"@#{name}")
+    # Initializer class for parameters.
+    class ParameterDecl
+      attr_accessor :engine_class, :name, :default, :is, :is_not, :to, :reader,
+                    :varname, :writer
+
+      def initialize(engine_class, name, **args, &block)
+        self.engine_class = engine_class
+        self.name = name
+
+        initialize_opts(**args)
+        call_block(&block)
 
         assert_validity
         freeze
@@ -52,6 +51,56 @@ module Boombox
       end
 
       def new(*args, **opts, &block) = Parameter.new(*args, **opts, &block)
+
+      private
+
+      def call_block(&block)
+        proxy.call(&block) if block
+      end
+
+      def initialize_opts(**opts)
+        self.default = opts[:default]
+        self.is      = opts[:is]      || ->(_) { true }
+        self.is_not  = opts[:is_not]  || ->(_) { false }
+        self.to      = opts[:to]      || :itself
+        self.reader  = opts[:reader]  || :"_#{name}"
+        self.varname = opts[:varname] || :"@#{name}"
+      end
+
+      def proxy
+        Proxy.new do
+          define :default, ->(default) { self.default = default }
+          define :is,      ->(is)      { self.is = is }
+          define :is_not,  ->(is_not)  { self.is_not = is_not }
+          define :to,      ->(to)      { self.to = to }
+          define :reader,  ->(reader)  { self.reader = reader }
+          define :varname, ->(varname) { self.varname = varname }
+        end
+      end
+    end
+
+    ##
+    # Initializer class for engine groups.
+    class EngineGroupDecl < ParameterDecl
+      attr_accessor :exposes
+
+      def assert_validity; end
+
+      def new(*args, **opts, &block) = EngineGroup.new(*args, **opts, &block)
+
+      private
+
+      def initialize_opts(**opts)
+        super
+
+        self.exposes = opts[:exposes] || []
+      end
+
+      def proxy
+        Helper.new(super) do
+          define :param, exposes.method(:<<)
+        end
+      end
     end
 
     ##

@@ -25,7 +25,7 @@ require_relative 'dsl'
 module Boombox
   ##
   # General purpose solver following the Dekker-Brent method.
-  class DekkerBrentSolver < EngineDSL
+  class DekkerBrentSolver < DSL::Engine
     ##
     # Thrown when the initial estimates have equal signs.
     class EqualSignsError < ArgumentError; end
@@ -156,7 +156,7 @@ module Boombox
   #
   # See: A Closed-form Model-free Implied Volatility Formula through Delta
   #      Families (https://ssrn.com/abstract=3573239)
-  class BSIVSolver < EngineDSL
+  class BSIVSolver < DSL::Engine
     PRECISION = 10
     class << self
       def erf_inv(xxx)
