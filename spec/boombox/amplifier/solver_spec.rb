@@ -8,7 +8,7 @@ SOLV_PRECISION = 1e-6
 RSpec.shared_examples 'iv_solver_eu_tests_calls' do |engine, solver|
   it 'should compute call iv' do
     engine = engine.with(type: :call)
-    solver = solver.with(engine: engine)
+    solver = solver.with(engine:)
     expect(solver.with(engine: engine.with(strike: 80),
                        contract_value: 23.75799).solve_for(:iv))
       .to be_within(SOLV_PRECISION).of(0.3)
@@ -30,7 +30,7 @@ end
 RSpec.shared_examples 'iv_solver_eu_tests_puts' do |engine, solver|
   it 'should compute put iv' do
     engine = engine.with(type: :put)
-    solver = solver.with(engine: engine)
+    solver = solver.with(engine:)
     expect(solver.with(engine: engine.with(strike: 80),
                        contract_value: 1.00642).solve_for(:iv))
       .to be_within(SOLV_PRECISION).of(0.3)
@@ -52,7 +52,7 @@ end
 RSpec.shared_examples 'iv_solver_us_tests_puts' do |engine, solver|
   it 'should compute put iv' do
     engine = engine.with(type: :put)
-    solver = solver.with(engine: engine)
+    solver = solver.with(engine:)
     expect(solver.with(engine: engine.with(strike: 80),
                        contract_value: 1.04264).solve_for(:iv))
       .to be_within(SOLV_PRECISION).of(0.3)
