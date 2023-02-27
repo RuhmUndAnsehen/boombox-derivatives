@@ -226,7 +226,7 @@ module Boombox
     param :contract_value, to: :to_d
 
     def _fn(estimate)
-      _engine.with(_param => estimate).solve_for(:value).price - _contract_value
+      _engine.with(_param => estimate).solve_for(:value) - _contract_value
     end
 
     def solve_for(param, &block)

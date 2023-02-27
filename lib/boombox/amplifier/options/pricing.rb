@@ -20,9 +20,6 @@ require_relative '../common'
 require_relative '../refine/to_tensor'
 
 module Boombox
-  Underlying = Struct.new(:price, :time)
-  ContractParams = Struct.new(:price, :iv, :delta, :gamma, :rho, :theta, :vega)
-
   ##
   # Superclass for options pricing engines
   class OptionsEngine < ForwardInstrumentsEngine
@@ -94,10 +91,7 @@ module Boombox
       @_rho ||= _target_helper * _tte
     end
 
-    def solve_for_value
-      price = _spot_helper - _target_helper
-      ContractParams.new(price, _iv, _delta, _gamma, _rho, _theta, _vega)
-    end
+    def solve_for_value = _spot_helper - _target_helper
 
     private
 
@@ -120,30 +114,22 @@ module Boombox
                   is: %i[american european].method(:include?)
 
     def solve_for_value
-      last1 = last2 = nil
-      last0 = _target
-      _steps.times.reverse_each do |stepno|
-        last2 = last1
-        last1 = last0
-        last0 =
-          last0.each_cons(2).each_with_index.map do |(uptgt, downtgt), ndowns|
-            _node_adj(stepno, ndowns,
-                      (_p * uptgt + _p_inv * downtgt) *
-                        Math.exp(-_rate * _tte / _steps))
-          end
+      result = _steps.times.reverse_each
+                     .reduce(_target) do |last, stepno|
+        last.each_cons(2)
+            .each_with_index.map do |(uptgt, downtgt), ndowns|
+          _binomial_step(stepno, ndowns, uptgt, downtgt)
+        end
       end
-      raise 'price Array contains more than one element' if last0.size != 1
+      result.first
+    end
 
-      d_s = (_up - _down) * _spot
-      d_s_d = d_s * _down
-      d_s_u = d_s * _up
-      delta_d = (last2[1] - last2[2]) / d_s_d
-      delta_u = (last2[0] - last2[1]) / d_s_u
+    def _binomial_step(stepno, ndowns, uptgt, downtgt)
+      _node_adj(stepno, ndowns, (_p * uptgt + _p_inv * downtgt) * _dcf)
+    end
 
-      delta = (last1[0] - last1[1]) / d_s
-      gamma = (delta_u - delta_d) / d_s
-      # ~ theta = (last2[1] - last0[0]) / 2 / _tte * _steps
-      ContractParams.new(last0[0], _iv, delta, gamma)
+    def _dcf
+      @_dcf ||= Math.exp(-_rate * _tte / _steps)
     end
 
     def _node_adj(stepno, ndowns, value)
@@ -231,7 +217,7 @@ module Boombox
         last0 = _step_adj(stepno, Torch::NN::Functional.conv1d(last0, updown))
       end
 
-      ContractParams.new(last0.view(1).item, _iv)
+      last0.view(-1)
     end
 
     def _step_adj(stepno, value)
