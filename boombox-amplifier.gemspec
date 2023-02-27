@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.summary       = 'Financial instrument library for the Boombox software'
   # spec.description   = 'TODO: Write a longer description or delete this line.'
   spec.homepage      = 'https://github.com/RuhmUndAnsehen/boombox-amplifier'
-  spec.required_ruby_version = '>= 3.0'
+  spec.required_ruby_version = '>= 3.1'
 
   spec.metadata['allowed_push_host'] = 'TODO: Set to \'https://mygemserver.com\''
 
