@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 #    Financial instrument library for Boombox
-#    Copyright (C) 2022 RuhmUndAnsehen
+#    Copyright (C) 2022-2023 RuhmUndAnsehen
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -19,27 +19,16 @@
 require 'observer'
 
 require 'boombox/amplifier/version'
+require_relative 'proxy'
 
 module Boombox
   module DSL
     ##
-    # Proxy class to redirect DSL calls.
-    class Proxy < BasicObject
-      ##
-      # Internal helper class used to define methods on Proxy.
-      class Helper < BasicObject
-        attr_accessor :proxy
-
-        def initialize(proxy)
-          self.proxy = proxy
-        end
-
-        def define(method, prc)
-          proxy.define_method(method) { prc.call }
-        end
+    # Raised if a parameter was referenced but not declared.
+    class UndeclaredParameterError < ArgumentError
+      def initialize(name)
+        super("undeclared parameter: #{name.inspect}")
       end
-
-      def call = yield(self)
     end
   end
 end

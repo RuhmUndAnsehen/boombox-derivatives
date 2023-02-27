@@ -16,37 +16,4 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-require 'bigdecimal'
-require 'bigdecimal/util'
-require 'date'
-require 'time'
-
-require 'boombox/amplifier/version'
-require_relative 'dsl'
-require_relative 'refine/to_time'
-
-module Boombox
-  Underlying = Struct.new(:price, :time)
-  SECONDS_PA = 365 * 24 * 3600
-
-  ##
-  # Common superclass for different kinds of derivatives.
-  class ForwardInstrumentsEngine < DSL::Engine
-    using ::Boombox::Refine::ToTime
-
-    param :expiry, to: :to_time
-    param :rate, default: 0, to: :to_d
-    param :spot, to: :to_d
-    param :time, to: :to_time
-    param :yield, default: 0, to: :to_d
-
-    def _maturity = _expiry
-
-    def _tte(time = nil)
-      return ((_expiry - time).to_d / SECONDS_PA) if time
-
-      @_tte ||= _tte(_time)
-    end
-    alias _ttm _tte
-  end
-end
+require_relative 'forwards/pricing'

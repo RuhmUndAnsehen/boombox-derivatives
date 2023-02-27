@@ -45,7 +45,6 @@ module Boombox
 
     def solve(&block)
       reset
-      initialize_defaults
 
       @_fn = block
       @_ak, @_bk = initial_estimates
@@ -231,7 +230,7 @@ module Boombox
     end
 
     def solve_for(param, &block)
-      with(param: param).solve(&block)
+      with(param:).solve(&block)
     end
   end
 end

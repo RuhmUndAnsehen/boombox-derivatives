@@ -30,7 +30,7 @@ module Boombox
     param :strike, to: :to_d
     param :type, default: :call, is: %i[put call].method(:include?)
 
-    alias _carry _rate
+    def _carry = _rate
 
     def _type_int
       @_type_int ||= _type == :call ? 1 : -1
