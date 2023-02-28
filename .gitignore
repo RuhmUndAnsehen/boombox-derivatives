@@ -58,10 +58,20 @@ build-iPhoneSimulator/
 # Bundler files
 bin/bundle
 bin/htmldiff
+bin/kramdown
 bin/ldiff
+bin/nokogiri
+bin/racc
 bin/rake
+bin/reverse_markdown
 bin/rspec
 bin/rubocop
 bin/ruby-parse
 bin/ruby-rewrite
+bin/solargraph
+bin/thor
+bin/tilt
+bin/yard
+bin/yardoc
+bin/yri
 
