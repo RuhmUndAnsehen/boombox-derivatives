@@ -38,7 +38,7 @@ module Boombox
 
       def initialize(**opts)
         instantiate_params
-        initialize_params(opts)
+        update(**opts)
       end
 
       def dirty? = @engine_dirty
@@ -99,19 +99,6 @@ module Boombox
         self.class.each_decl
             .map  { |decl| decl.instantiate(self) }
             .each { |inst| inst.instantiated(self) }
-      end
-
-      def initialize_params(args)
-        args = args.dup
-
-        params.each do |inst|
-          name = inst.name
-          inst.value = args.delete(name) if args.key?(name)
-        end
-
-        # We deleted the arguments corresponding to parameters, so the hash
-        # should be empty. Raise an error if it's not.
-        raise UndeclaredParameterError, args.keys.first unless args.empty?
       end
 
       def initialized_params = params.select(&:initialized?)
