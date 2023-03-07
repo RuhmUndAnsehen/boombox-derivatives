@@ -303,9 +303,9 @@ module Boombox
     end
 
     def _hnhelper(d_n)
-      d_n.div!(3.0.to_tensor.pow!(-1)
-      .add!(_steps)
-      .add!((_steps + 1).to_tensor(dtype: :double).pow!(-1)))
+      d_n.div(3.0.to_tensor.pow!(-1)
+                 .add!(_steps)
+                 .add!((_steps + 1).to_tensor(dtype: :double).pow!(-1)))
          .square!
          .mul!(-1)
          .mul!(6.0.to_tensor.pow!(-1).add!(_steps))
