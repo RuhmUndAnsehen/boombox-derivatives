@@ -207,16 +207,11 @@ module Boombox
     param :yield, default: 0.0, to: TO_TENSOR
 
     def solve_for_value
-      updown = _updown
-      last1 = last2 = nil
-      last0 = _target
-      _steps.times.reverse_each do |stepno|
-        last2 = last1
-        last1 = last0
-        last0 = _step_adj(stepno, Torch::NN::Functional.conv1d(last0, updown))
+      result = _steps.times.reverse_each.reduce(_target) do |last, stepno|
+        _step_adj(stepno, Torch::NN::Functional.conv1d(last, _updown))
       end
 
-      last0.view(-1)
+      result.view(-1)
     end
 
     def _step_adj(stepno, value)
