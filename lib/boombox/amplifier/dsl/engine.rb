@@ -60,8 +60,20 @@ module Boombox
             end
       end
 
+      def engine_groups = params.select { |obj| obj.is_a?(EngineGroup) }
       def initialized? = params.any?(&:initialized?)
+      def initialized_params = params.select(&:initialized?)
       def new(**args) = self.class.new(**to_h.merge!(args))
+
+      def param(name)
+        decl = name.is_a?(BaseDecl) ? name : self.class[name]
+        instance_variable_get(decl.varname)
+      end
+
+      def params
+        instance_variables.map(&method(:instance_variable_get))
+        .select { |obj| obj.is_a?(BaseInst) }
+      end
 
       def reset
         resettable_instance_variables.each { |v| remove_instance_variable(v) }
@@ -83,6 +95,8 @@ module Boombox
         initialized_params.to_h { |par| [par.name, par.value] }
       end
 
+      def uninitialized_params = params.reject(&:initialized?)
+
       def update(**params)
         params.each { |name, value| self[name] = value }
         self
@@ -93,27 +107,11 @@ module Boombox
 
       private
 
-      def engine_groups = params.select { |obj| obj.is_a?(EngineGroup) }
-
       def instantiate_params
         self.class.each_decl
             .map  { |decl| decl.instantiate(self) }
             .each { |inst| inst.instantiated(self) }
       end
-
-      def initialized_params = params.select(&:initialized?)
-
-      def param(name)
-        decl = name.is_a?(BaseDecl) ? name : self.class[name]
-        instance_variable_get(decl.varname)
-      end
-
-      def params
-        instance_variables.map(&method(:instance_variable_get))
-                          .select { |obj| obj.is_a?(BaseInst) }
-      end
-
-      def uninitialized_params = params.reject(&:initialized?)
     end
   end
 end
