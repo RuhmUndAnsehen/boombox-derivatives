@@ -149,18 +149,37 @@ module Boombox
     ##
     # Subgroup of Engines.
     class EngineGroup < BaseParameter
-      def initialized? = @value.any?(&:initialized?)
+      attr_accessor :template
+
+      def initialize(decl, template)
+        super(decl)
+
+        @template = template.new
+      end
+
+      def initialized? = raw_value.any?(&:initialized?)
 
       def param(name)
+        param = template.param(name)
         Proxy.new do |prxy|
-          prxy.define :value, -> { @value.map { |e| e.param(name).value } }
-          prxy.define :value=,
-                      ->(nval) { @value.map { |e| e.param(name).value = nval } }
+          prxy.define :initialized?, -> { param.initialized? }
+          prxy.define :value,        -> { param.value }
+          prxy.define :value=, ->(nval) { update_at(name, nval) }
         end
       end
 
+      def raw_value
+        @value ||= []
+      end
+
       def replace(array)
-        @value = array.map { |params| decl.template.with(**params) }
+        @value = array.map { |params| template.with(**params) }
+      end
+
+      def update_at(name, newval)
+        template.with!(name => newval)
+        raw_value.each { |e| e.param(name).value = newval }
+        newval
       end
 
       def value=(newval)
@@ -169,9 +188,10 @@ module Boombox
         else
           raise TypeError, "unsupported value type: #{newval.class}"
         end
+        newval
       end
 
-      def value = super.map(&:to_h)
+      def value = raw_value.map(&:to_h)
     end
 
     ##
@@ -181,21 +201,24 @@ module Boombox
     # as parameters through Engine.
     class Delegate < BaseParameter
       attr_reader :group
+      attr_reader :target
 
       def delegation   = decl.delegation
-      def initialized? = false
+      def initialized? = initializable? && target.initialized?
 
       def instantiated(engine)
-        @group = engine[delegation.to]
+        @group  = engine.param(delegation.to)
+        @target = group.param(param)
         self
       end
 
+      def initializable? = decl.initializable?
       def param          = decl.param
       def prefixed_param = decl.prefixed_param
-      def value          = group.param(param).value
+      def value          = target.value
 
       def value=(newval)
-        group.param(param).value = newval
+        target.value = newval
       end
     end
   end

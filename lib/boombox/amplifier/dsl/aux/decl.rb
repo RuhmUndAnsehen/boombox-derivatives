@@ -199,6 +199,10 @@ module Boombox
         super
       end
 
+      def instantiate(engine, *args, **opts)
+        super(engine, template, *args, **opts)
+      end
+
       def proxy
         amend_proxy(super) do |proxy|
           proxy.define :exposes, ->(*params) { exposes.concat(params) }
@@ -253,6 +257,7 @@ module Boombox
       end
 
       attr_accessor :delegation
+      attribute :initializable, default: true
 
       def initialize(*args, **opts, &block)
         self.delegation = self.class.delegation(*args, **opts)
@@ -266,6 +271,7 @@ module Boombox
       end
 
       def group          = delegation.to
+      def initializable? = initializable
       def param          = delegation.param
       def prefixed_param = delegation.prefixed_param
     end
