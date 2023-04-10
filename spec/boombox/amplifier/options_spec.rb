@@ -137,7 +137,7 @@ RSpec.describe Boombox::FastLREngine do
           engine.with!(iv: 0.3)
           context 'and tte 0.5 years' do
             engine.with!(expiry: Time.new(2000, 1, 1) + 365 * 12 * 3600)
-            context 'and 25 steps' do
+            context 'and 853 steps' do
               engine.with!(steps: 853)
               it 'should compute European style call prices' do
                 engine2 = engine.with(style: :european, type: :call)
