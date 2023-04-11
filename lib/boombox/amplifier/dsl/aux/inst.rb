@@ -169,7 +169,9 @@ module Boombox
       end
 
       def raw_value
+        # rubocop:disable Naming/MemoizedInstanceVariableName
         @value ||= []
+        # rubocop:enable Naming/MemoizedInstanceVariableName
       end
 
       def replace(array)
