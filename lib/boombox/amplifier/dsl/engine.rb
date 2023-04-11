@@ -72,7 +72,7 @@ module Boombox
 
       def params
         instance_variables.map(&method(:instance_variable_get))
-        .select { |obj| obj.is_a?(BaseInst) }
+                          .select { |obj| obj.is_a?(BaseInst) }
       end
 
       def reset
