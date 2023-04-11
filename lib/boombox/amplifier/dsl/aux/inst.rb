@@ -202,8 +202,7 @@ module Boombox
     # This enables the parameters of EngineGroup constituents to be addressed
     # as parameters through Engine.
     class Delegate < BaseParameter
-      attr_reader :group
-      attr_reader :target
+      attr_reader :group, :target
 
       def delegation   = decl.delegation
       def initialized? = initializable? && target.initialized?
