@@ -257,6 +257,7 @@ module Boombox
       end
 
       attr_accessor :delegation
+
       attribute :initializable, default: true
 
       def initialize(*args, **opts, &block)
