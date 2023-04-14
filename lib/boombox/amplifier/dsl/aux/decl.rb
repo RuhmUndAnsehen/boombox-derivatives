@@ -170,10 +170,17 @@ module Boombox
         def instance_class = Parameter
       end
 
-      attribute :default, optional: true
-      attribute :is,      default: ->(_) { true }
-      attribute :is_not,  default: ->(_) { false }
-      attribute :to,      default: :itself
+      attribute :default,   optional: true
+      attribute :is,        default: ->(_) { true }
+      attribute :is_not,    default: ->(_) { false }
+      attribute :observers, default: []
+      attribute :to,        default: :itself
+
+      def proxy
+        amend_proxy(super) do |proxy|
+          proxy.define :observed_by, ->(*params) { observers.concat(*params) }
+        end
+      end
     end
 
     ##

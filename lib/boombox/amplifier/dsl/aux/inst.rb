@@ -116,6 +116,12 @@ module Boombox
         super
       end
 
+      def instantiated(engine)
+        decl.observers.map(&engine.method(:param))
+            .each(&method(:<<))
+        self
+      end
+
       def is?(it_is = decl.is)
         it_is == value ||
           (it_is.is_a?(Module) && value.is_a?(it_is)) ||
@@ -183,6 +189,7 @@ module Boombox
         raw_value.each { |e| e.param(name).value = newval }
         newval
       end
+      alias update update_at
 
       def value=(newval)
         case newval
