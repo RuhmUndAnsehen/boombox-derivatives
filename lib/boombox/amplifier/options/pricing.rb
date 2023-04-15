@@ -208,7 +208,9 @@ module Boombox
 
     def solve_for_value
       result = _steps.times.reverse_each.reduce(_target) do |last, stepno|
-        _step_adj(stepno, Torch::NN::Functional.conv1d(last, _updown))
+        _step_adj(stepno,
+                  Torch::NN::Functional.conv1d(last, _updown,
+                                               groups: _updown.size(0)))
       end
 
       result.view(-1)
