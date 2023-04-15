@@ -29,6 +29,57 @@ module Boombox
     # Thrown when the initial estimates have equal signs.
     class EqualSignsError < ArgumentError; end
 
+    ##
+    # The solver's internal state.
+    State = Struct.new(:a_k, :b_k, :f_ak, :f_bk, :b_km1, :f_bkm1, :b_km2,
+                       :f_bkm2, :bisect_condition, keyword_init: true) do
+      alias_method :bisect?, :bisect_condition
+
+      def assert_unequal_signs
+        raise EqualSignsError if (f_ak <=> 0) == (f_bk <=> 0)
+
+        self
+      end
+
+      def convergence?(tolerance = 1e-6) = f_bk.abs < tolerance
+      def d_bk        = b_k   - b_km1
+      def d_bkm1      = b_km1 - b_km2
+      def d_fbk       = f_bk  - f_bkm1
+      def diffquot_bk = d_bk / d_fbk
+
+      def sanitize
+        return self unless f_bk.abs > f_ak.abs
+
+        self.a_k,  self.b_k  = b_k,  a_k
+        self.f_ak, self.f_bk = f_bk, f_ak
+        self
+      end
+
+      def shift(times = 1)
+        shift(times - 1) if times > 1
+        shift_once
+        self
+      end
+      alias_method :<<, :shift
+
+      def shift_once
+        self.b_km2  = b_km1
+        self.b_km1  = b_k
+        self.f_bkm2 = f_bkm1
+        self.f_bkm1 = f_bk
+      end
+
+      def with(**kwargs) = dup.with!(**kwargs)
+
+      def with!(**kwargs)
+        kwargs.each { |key, val| self[key] = val }
+        self
+      end
+    end
+
+    attr_accessor :state
+    alias s state
+
     param :a0, to: :to_d
     param :b0, to: :to_d
     param :max_iterations, default: 42, is: :positive?
@@ -46,105 +97,76 @@ module Boombox
       reset
 
       @_fn = block
-      @_ak, @_bk = initial_estimates
-      @_fak, @_fbk = assert_unequal_signs(@_ak, @_bk)
-      ensure_params_order
-      shift_params(2)
-      @_bisectflag = true
+      self.state = new_state
+      s.assert_unequal_signs.sanitize.shift(2)
+      s.bisect_condition = true
       recurse_solve(0)
     end
 
     protected
 
-    def initial_estimates
-      [_a0, _b0]
+    def new_state
+      State.new(a_k: _a0, b_k: _b0, f_ak: _fn(_a0), f_bk: _fn(_b0))
     end
 
     def recurse_solve(depth)
-      return @_bk if @_fbk.abs < _tolerance || depth >= _max_iterations
+      return s.b_k if s.convergence?(_tolerance) || depth >= _max_iterations
 
-      s = secant
-      if bisect_condition(s)
-        s = bisect
-        @_bisectflag = true
+      sec = secant
+      if bisect_condition(sec)
+        sec = bisect
+        s.bisect_condition = true
       else
-        @_bisectflag = false
+        s.bisect_condition = false
       end
 
-      update_params(s)
+      update_params(sec)
       recurse_solve(depth + 1)
     end
 
-    def update_params(val_s)
-      shift_params
-      fs = _fn(val_s)
-      if (@_fak * fs).negative?
-        @_bk = val_s
-        @_fbk = fs
+    def update_params(sec)
+      s.shift
+      fs = _fn(sec)
+      if (s.f_ak * fs).negative?
+        s.b_k  = sec
+        s.f_bk = fs
       else
-        @_ak = val_s
-        @_fak = fs
+        s.a_k  = sec
+        s.f_ak = fs
       end
-      ensure_params_order
-    end
-
-    def shift_params(times = 1)
-      shift_params(times - 1) if times > 1
-      shift_params_once
+      s.sanitize
     end
 
     private
 
     def sign(val) = val <=> 0
-    def bisect = (@_ak + @_bk) / 2
+    def bisect = (s.a_k + s.b_k) / 2
 
     def bisect_condition(secant)
-      intp = (3 * @_ak + @_bk) / 4
-      (intp <=> secant) != (secant <=> @_bk) ||
-        (@_bisectflag &&
-         ((secant - @_bk).abs >= (@_bk - @_bkm1).abs / 2 ||
-          (@_bk - @_bkm1).abs < _tolerance)) ||
-        (!@_bisectflag &&
-         ((secant - @_bk).abs >= (@_bkm1 - @_bkm2).abs / 2 ||
-          (@_bkm1 - @_bkm2).abs < _tolerance))
+      intp = (3 * s.a_k + s.b_k) / 4
+      (intp <=> secant) != (secant <=> s.b_k) ||
+        s.bisect?  && bs_cond_helper(secant, s.d_bk) ||
+        !s.bisect? && bs_cond_helper(secant, s.d_bkm1)
+    end
+
+    def bs_cond_helper(secant, d_bkx)
+      (secant - s.b_k).abs >= d_bkx.abs / 2 || d_bkx.abs < _tolerance
     end
 
     def secant
-      if @_fak != @_fbk && @_fbk != @_fbkm1
-        i1 = interp_term(@_ak, @_fak, @_fbk, @_fbkm1)
-        i2 = interp_term(@_bk, @_fbk, @_fak, @_fbkm1)
-        i3 = interp_term(@_bkm1, @_fbkm1, @_fak, @_fbk)
+      if s.f_ak != s.f_bk && s.f_bk != s.f_bkm1
+        i1 = interp_term(:a_k,   :f_ak,   :f_bk, :f_bkm1)
+        i2 = interp_term(:b_k,   :f_bk,   :f_ak, :f_bkm1)
+        i3 = interp_term(:b_km1, :f_bkm1, :f_ak, :f_bk)
         i1 + i2 + i3
       else
-        diffquot = (@_bk - @_bkm1) / (@_fbk - @_fbkm1)
-        @_fbk - diffquot * @_fbk
+        (1 - s.diffquot_bk) * s.f_bk
       end
     end
 
-    def interp_term(val, fval, foth1, foth2)
+    def interp_term(*syms)
+      val, fval, foth1, foth2 = *syms.map(&s.method(:[]))
       val * foth1 * foth2 / (fval - foth1) / (fval - foth2)
-    end
-
-    def ensure_params_order
-      return unless @_fbk.abs > @_fak.abs
-
-      @_ak, @_bk = @_bk, @_ak
-      @_fak, @_fbk = @_fbk, @_fak
-    end
-
-    def shift_params_once
-      @_bkm2 = @_bkm1
-      @_bkm1 = @_bk
-      @_fbkm2 = @_fbkm1
-      @_fbkm1 = @_fbk
-    end
-
-    def assert_unequal_signs(val_a, val_b)
-      fak = _fn(val_a)
-      fbk = _fn(val_b)
-      raise EqualSignsError if sign(fak) == sign(fbk)
-
-      [fak, fbk]
     end
   end
 
