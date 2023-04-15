@@ -185,3 +185,105 @@ RSpec.describe Boombox::FastLREngine do
     end
   end
 end
+
+RSpec.describe Boombox::FastLRChainEngine do
+  describe '#update' do
+    engine = described_class.new(
+      expiry: Time.new(2000, 1, 1) + 365 * 12 * 3600,
+      iv: 0.3, rate: 0.07, spot: 100, steps: 25, time: Time.new(2000, 1, 1)
+    )
+    it 'should have initialized the correct parameters' do
+      expect(engine.param(:chain)
+                   .template.initialized_params.map(&:decl).map(&:name).sort)
+        .to eq(%i[expiry iv rate spot steps time])
+    end
+
+    context 'with given strikes' do
+      engine.with!(chain: [80, 90, 100, 110, 120].map { |strike| { strike: } })
+      it 'should not change the #template' do
+        expect(engine.param(:chain)
+                     .template.initialized_params.map(&:decl).map(&:name).sort)
+          .to eq(%i[expiry iv rate spot steps time])
+      end
+      it 'should initialize the #chain\'s parameters' do
+        expect(engine.param(:chain).raw_value.size).to eq(5)
+        params = engine.param(:chain)
+                       .value.map do |actual|
+          actual.transform_values do |value|
+            case value
+            when Torch::Tensor then value.item
+            else
+              value
+            end
+          end
+        end
+        params.zip([80, 90, 100, 110, 120])
+              .each do |actual, strike|
+                expect(actual)
+                  .to include(expiry: Time.new(2000, 1, 1) + 365 * 12 * 3600,
+                              iv: a_value_within(FLR_PRECISION).of(0.3),
+                              rate: a_value_within(FLR_PRECISION).of(0.07),
+                              spot: a_value_within(FLR_PRECISION).of(100),
+                              steps: 25,
+                              strike: a_value_within(FLR_PRECISION).of(strike),
+                              time: Time.new(2000, 1, 1))
+              end
+      end
+
+      context 'with given style and type' do
+        engine2 = engine.with(style: :european, type: :call)
+        it 'should update the #template' do
+          expect(engine2.param(:chain).template
+                        .initialized_params.map(&:decl).map(&:name).sort)
+            .to eq(%i[expiry iv rate spot steps style time type])
+        end
+        it 'should update the #chain\'s parameters' do
+          expect(engine2.param(:chain).raw_value.size).to eq(5)
+          params = engine2.param(:chain)
+                          .value.map do |actual|
+            actual.transform_values do |value|
+              case value
+              when Torch::Tensor then value.item
+              else
+                value
+              end
+            end
+          end
+          params.zip([80, 90, 100, 110, 120])
+                .each do |actual, strike|
+                  expect(actual)
+                    .to include(expiry: Time.new(2000, 1, 1) + 365 * 12 * 3600,
+                                iv: a_value_within(FLR_PRECISION).of(0.3),
+                                rate: a_value_within(FLR_PRECISION).of(0.07),
+                                spot: a_value_within(FLR_PRECISION).of(100),
+                                steps: 25,
+                                strike: a_value_within(FLR_PRECISION)
+                                          .of(strike),
+                                style: :european,
+                                time: Time.new(2000, 1, 1),
+                                type: :call)
+                end
+        end
+      end
+    end
+  end
+
+  describe '#solve_for(:value)' do
+    engine = described_class.new(
+      expiry: Time.new(2000, 1, 1) + 365 * 12 * 3600,
+      iv: 0.3, rate: 0.07, spot: 100, steps: 853, time: Time.new(2000, 1, 1)
+    )
+    context 'with given strikes' do
+      engine.with!(chain: [80, 90, 100, 110, 120].map { |strike| { strike: } })
+      it 'should compute European style call prices' do
+        engine2 = engine.with(style: :european, type: :call)
+        engine2.solve_for(:value)
+               .map(&:item)
+               .zip([23.75799, 16.09963, 10.13377, 5.94946, 3.28280])
+               .each do |actual, target|
+                 expect(actual).to be_within(FLR_PRECISION).of(target)
+               end
+      end
+    end
+  end
+end

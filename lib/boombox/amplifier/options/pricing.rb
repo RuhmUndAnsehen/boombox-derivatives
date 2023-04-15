@@ -310,4 +310,36 @@ module Boombox
 
     def _iv_timeadj = _iv.mul(_tte.sqrt)
   end
+
+  ##
+  # Engine for pricing multiple options.
+  class FastLRChainEngine < FastLREngine
+    engine_group :chain do
+      exposes :expiry, :iv, :rate, :spot, :style, :time, :type, :yield
+      template FastLREngine
+    end
+    param :steps, default: 123, is: :positive?, observers: [:chain]
+
+    def _option_chain
+      @_option_chain ||= param(:chain).raw_value
+    end
+
+    def reset
+      _option_chain.each(&:reset)
+      super
+    end
+
+    def _step_adj(stepno, value)
+      adjs = _option_chain.zip(value[0]).map do |engine, val|
+        engine._step_adj(stepno, val.view(1, 1, -1))
+      end
+      Torch.cat(adjs, dim: 1)
+    end
+
+    def _target = Torch.cat(_option_chain.map(&:_target), dim: 1)
+
+    def _updown
+      @_updown ||= Torch.cat(_option_chain.map(&:_updown), dim: 0)
+    end
+  end
 end
