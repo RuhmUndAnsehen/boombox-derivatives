@@ -31,9 +31,13 @@ module Boombox
 
     ##
     # The solver's internal state.
+    #
+    # This class can be overriden (see ::new_state) to abstract from the
+    # underlying number type.
     State = Struct.new(:a_k, :b_k, :f_ak, :f_bk, :b_km1, :f_bkm1, :b_km2,
-                       :f_bkm2, :bisect_condition, keyword_init: true) do
-      alias_method :bisect?, :bisect_condition
+                       :f_bkm2, :bisect_flag, :tolerance,
+                       keyword_init: true) do
+      alias_method :bisect?, :bisect_flag
 
       def assert_unequal_signs
         raise EqualSignsError if (f_ak <=> 0) == (f_bk <=> 0)
@@ -41,32 +45,48 @@ module Boombox
         self
       end
 
-      def convergence?(tolerance = 1e-6) = f_bk.abs < tolerance
-      def d_bk        = b_k   - b_km1
-      def d_bkm1      = b_km1 - b_km2
-      def d_fbk       = f_bk  - f_bkm1
-      def diffquot_bk = d_bk / d_fbk
+      def bisect = (a_k + b_k) / 2
+
+      def conditional_bisect
+        sec = secant
+        self.bisect_flag = bisect_condition(sec)
+        bisect? ? bisect : sec
+      end
+
+      def convergence? = tolerable?(f_bk)
+      def d_bk         = b_k   - b_km1
+      def d_bkm1       = b_km1 - b_km2
+      def d_fbk        = f_bk  - f_bkm1
+      def diffquot_bk  = d_bk / d_fbk
 
       def sanitize
         return self unless f_bk.abs > f_ak.abs
 
-        self.a_k,  self.b_k  = b_k,  a_k
-        self.f_ak, self.f_bk = f_bk, f_ak
-        self
+        with!(a_k: b_k, b_k: a_k, f_ak: f_bk, f_bk: f_ak)
+      end
+
+      def secant
+        if f_ak != f_bk && f_bk != f_bkm1
+          i1 + i2 + i3
+        else
+          (1 - diffquot_bk) * f_bk
+        end
       end
 
       def shift(times = 1)
-        shift(times - 1) if times > 1
-        shift_once
+        times.times { shift_once }
         self
       end
       alias_method :<<, :shift
 
-      def shift_once
-        self.b_km2  = b_km1
-        self.b_km1  = b_k
-        self.f_bkm2 = f_bkm1
-        self.f_bkm1 = f_bk
+      def tolerable?(arg) = arg.abs < tolerance
+
+      def update(sec, f_s)
+        if (f_ak * f_s).negative?
+          with!(b_k: sec, f_bk: f_s)
+        else
+          with!(a_k: sec, f_ak: f_s)
+        end
       end
 
       def with(**kwargs) = dup.with!(**kwargs)
@@ -75,6 +95,35 @@ module Boombox
         kwargs.each { |key, val| self[key] = val }
         self
       end
+
+      private
+
+      def bisect_condition(secant)
+        intp = (3 * a_k + b_k) / 4
+        (intp <=> secant) != (secant <=> b_k) ||
+          bisect?  && bs_cond_helper(secant, d_bk) ||
+          !bisect? && bs_cond_helper(secant, d_bkm1)
+      end
+
+      def bs_cond_helper(secant, d_bkx)
+        (secant - b_k).abs >= d_bkx.abs / 2 || tolerable?(d_bkx)
+      end
+
+      def i1 = interp_term(a_k,   f_ak,   f_bk, f_bkm1)
+      def i2 = interp_term(b_k,   f_bk,   f_ak, f_bkm1)
+      def i3 = interp_term(b_km1, f_bkm1, f_ak, f_bk)
+
+      def interp_term(val, fval, foth1, foth2)
+        val * foth1 * foth2 / (fval - foth1) / (fval - foth2)
+      end
+
+      def shift_once
+        with!(b_km2: b_km1, b_km1: b_k, f_bkm2: f_bkm1, f_bkm1: f_bk)
+      end
+    end
+
+    class << self
+      def new_state(*args, **opts, &block) = State.new(*args, **opts, &block)
     end
 
     attr_accessor :state
@@ -97,76 +146,29 @@ module Boombox
       reset
 
       @_fn = block
-      self.state = new_state
-      s.assert_unequal_signs.sanitize.shift(2)
-      s.bisect_condition = true
+      init_state
       recurse_solve(0)
     end
 
     protected
 
-    def new_state
-      State.new(a_k: _a0, b_k: _b0, f_ak: _fn(_a0), f_bk: _fn(_b0))
+    def init_state
+      self.state = self.class.new_state(a_k: _a0, b_k: _b0,
+                                        f_ak: _fn(_a0), f_bk: _fn(_b0),
+                                        bisect_flag: true,
+                                        tolerance: _tolerance)
+      state.assert_unequal_signs.sanitize.shift(2)
     end
 
     def recurse_solve(depth)
-      return s.b_k if s.convergence?(_tolerance) || depth >= _max_iterations
+      return s.b_k if s.convergence? || depth >= _max_iterations
 
-      sec = secant
-      if bisect_condition(sec)
-        sec = bisect
-        s.bisect_condition = true
-      else
-        s.bisect_condition = false
-      end
-
-      update_params(sec)
+      update_params(s.conditional_bisect)
       recurse_solve(depth + 1)
     end
 
     def update_params(sec)
-      s.shift
-      fs = _fn(sec)
-      if (s.f_ak * fs).negative?
-        s.b_k  = sec
-        s.f_bk = fs
-      else
-        s.a_k  = sec
-        s.f_ak = fs
-      end
-      s.sanitize
-    end
-
-    private
-
-    def sign(val) = val <=> 0
-    def bisect = (s.a_k + s.b_k) / 2
-
-    def bisect_condition(secant)
-      intp = (3 * s.a_k + s.b_k) / 4
-      (intp <=> secant) != (secant <=> s.b_k) ||
-        s.bisect?  && bs_cond_helper(secant, s.d_bk) ||
-        !s.bisect? && bs_cond_helper(secant, s.d_bkm1)
-    end
-
-    def bs_cond_helper(secant, d_bkx)
-      (secant - s.b_k).abs >= d_bkx.abs / 2 || d_bkx.abs < _tolerance
-    end
-
-    def secant
-      if s.f_ak != s.f_bk && s.f_bk != s.f_bkm1
-        i1 = interp_term(:a_k,   :f_ak,   :f_bk, :f_bkm1)
-        i2 = interp_term(:b_k,   :f_bk,   :f_ak, :f_bkm1)
-        i3 = interp_term(:b_km1, :f_bkm1, :f_ak, :f_bk)
-        i1 + i2 + i3
-      else
-        (1 - s.diffquot_bk) * s.f_bk
-      end
-    end
-
-    def interp_term(*syms)
-      val, fval, foth1, foth2 = *syms.map(&s.method(:[]))
-      val * foth1 * foth2 / (fval - foth1) / (fval - foth2)
+      s.shift.update(sec, _fn(sec)).sanitize
     end
   end
 
