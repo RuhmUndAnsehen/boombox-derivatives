@@ -59,7 +59,7 @@ module Boombox
       # methods like #define_singleton_method that we need to define new stuff.
       def retain_methods
         %i[! != == __id__ __send__ define_singleton_method equal? instance_eval
-           instance_exec method_missing singleton_method_added
+           instance_exec method_missing object_id singleton_method_added
            singleton_method_removed singleton_method_undefined]
       end
 
