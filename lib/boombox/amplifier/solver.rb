@@ -75,7 +75,7 @@ module Boombox
       end
       alias_method :<<, :shift
 
-      def tolerable?(arg) = arg.abs < tolerance
+      def tolerable?(arg) = arg.abs <= tolerance
 
       def update(sec, f_s)
         if (f_ak * f_s).negative?
