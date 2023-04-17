@@ -15,10 +15,6 @@
 #    You should have received a copy of the GNU General Public License along
 #    with Boombox Amplifier. If not, see <https://www.gnu.org/licenses/>.
 
-require 'bigdecimal'
-require 'bigdecimal/math'
-require 'bigdecimal/util'
-
 require_relative 'dsl'
 
 module Boombox
@@ -129,10 +125,10 @@ module Boombox
     attr_accessor :state
     alias s state
 
-    param :a0, to: :to_d
-    param :b0, to: :to_d
+    param :a0
+    param :b0
     param :max_iterations, default: 42, is: :positive?
-    param :tolerance, default: 1e-6, to: :to_d, is_not: :negative?
+    param :tolerance, default: 1e-6, is_not: :negative?
 
     def _fn(*args, **opts, &block)
       unless @_fn
@@ -177,7 +173,7 @@ module Boombox
   class OptionsSolver < DekkerBrentSolver
     param :engine
     param :param, default: :iv, is: Symbol
-    param :contract_value, to: :to_d
+    param :contract_value
 
     def _fn(estimate)
       _engine.with(_param => estimate).solve_for(:value) - _contract_value
