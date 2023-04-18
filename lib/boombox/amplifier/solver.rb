@@ -61,13 +61,7 @@ module Boombox
         with!(a_k: b_k, b_k: a_k, f_ak: f_bk, f_bk: f_ak)
       end
 
-      def secant
-        if f_ak != f_bk && f_bk != f_bkm1
-          i1 + i2 + i3
-        else
-          (1 - diffquot_bk) * f_bk
-        end
-      end
+      def secant = secant_cond? ? secant_intp : secant_grad
 
       def shift(times = 1)
         times.times { shift_once }
@@ -78,13 +72,11 @@ module Boombox
       def tolerable?(arg) = arg.abs <= tolerance
 
       def update(sec, f_s)
-        if (f_ak * f_s).negative?
-          with!(b_k: sec, f_bk: f_s)
-        else
-          with!(a_k: sec, f_ak: f_s)
-        end
+        params = update?(f_s) ? %i[b_k f_bk] : %i[a_k f_ak]
+        with!(**params.zip([sec, f_s]).to_h)
       end
 
+      def update?(f_s) = (f_ak * f_s).negative?
       def with(**kwargs) = dup.with!(**kwargs)
 
       def with!(**kwargs)
@@ -95,8 +87,7 @@ module Boombox
       private
 
       def bisect_condition(secant)
-        intp = (3 * a_k + b_k) / 4
-        (intp <=> secant) != (secant <=> b_k) ||
+        (bs_cond_intp <=> secant) != (secant <=> b_k) ||
           bisect?  && bs_cond_helper(secant, d_bk) ||
           !bisect? && bs_cond_helper(secant, d_bkm1)
       end
@@ -105,6 +96,8 @@ module Boombox
         (secant - b_k).abs >= d_bkx.abs / 2 || tolerable?(d_bkx)
       end
 
+      def bs_cond_intp = (3 * a_k + b_k) / 4
+
       def i1 = interp_term(a_k,   f_ak,   f_bk, f_bkm1)
       def i2 = interp_term(b_k,   f_bk,   f_ak, f_bkm1)
       def i3 = interp_term(b_km1, f_bkm1, f_ak, f_bk)
@@ -112,6 +105,10 @@ module Boombox
       def interp_term(val, fval, foth1, foth2)
         val * foth1 * foth2 / (fval - foth1) / (fval - foth2)
       end
+
+      def secant_cond? = f_ak != f_bk && f_bk != f_bkm1
+      def secant_intp  = i1 + i2 + i3
+      def secant_grad  = (1 - diffquot_bk) * f_bk
 
       def shift_once
         with!(b_km2: b_km1, b_km1: b_k, f_bkm2: f_bkm1, f_bkm1: f_bk)
@@ -163,9 +160,7 @@ module Boombox
       recurse_solve(depth + 1)
     end
 
-    def update_params(sec)
-      s.shift.update(sec, _fn(sec)).sanitize
-    end
+    def update_params(sec) = s.shift.update(sec, _fn(sec)).sanitize
   end
 
   ##
