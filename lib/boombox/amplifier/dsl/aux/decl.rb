@@ -270,7 +270,7 @@ module Boombox
       def initialize(*args, **opts, &block)
         self.delegation = self.class.delegation(*args, **opts)
 
-        super(delegation.prefixed_param, &block)
+        super(prefixed_param, &block)
       end
 
       def assert_validity(_)
