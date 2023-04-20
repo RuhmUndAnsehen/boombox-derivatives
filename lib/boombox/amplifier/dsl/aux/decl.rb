@@ -18,6 +18,8 @@
 require 'observer'
 require 'set'
 
+require 'active_support/inflector'
+
 require_relative 'inst'
 require_relative 'proxy'
 

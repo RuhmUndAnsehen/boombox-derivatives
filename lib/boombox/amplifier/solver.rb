@@ -15,6 +15,8 @@
 #    You should have received a copy of the GNU General Public License along
 #    with Boombox Amplifier. If not, see <https://www.gnu.org/licenses/>.
 
+require 'active_support/inflector'
+
 require_relative 'dsl'
 
 module Boombox
