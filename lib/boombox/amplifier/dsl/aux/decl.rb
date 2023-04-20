@@ -202,8 +202,9 @@ module Boombox
       end
 
       def declared(engine_class)
-        exposes.map  { |(args, opts)| delegation(*args, **(opts || {})) }
-               .each { |decl| engine_class.send(:declare_param, decl) }
+        decls = exposes.map { |(args, opts)| delegation(*args, **(opts || {})) }
+        decls.chain(decls.filter_map(&:enum_decl))
+             .each { |decl| engine_class.send(:declare_param, decl) }
 
         super
       end
@@ -232,11 +233,13 @@ module Boombox
       # Data class holding parameter delegation data.
       class Delegation
         attr_accessor :param, :to, :prefix
+        attr_writer   :plural
 
-        def initialize(*args, param: nil, to: nil, prefix: nil)
+        def initialize(*args, param: nil, to: nil, prefix: nil, plural: nil)
           self.param  = init_arg(args, param)
           self.to     = init_arg(args, to)
           self.prefix = init_arg(args, prefix)
+          self.plural = init_arg(args, plural)
           freeze
         end
 
@@ -251,9 +254,16 @@ module Boombox
             end
         end
 
-        def prefixed_param = prefix ? :"#{prefix}_#{param}" : param
-        def to_h           = { param:, to:, prefix: }
-        def with(**opts)   = self.class.new(**to_h.merge!(opts))
+        def plural
+          return @plural unless @plural.nil?
+
+          ActiveSupport::Inflector.pluralize(param).to_sym
+        end
+
+        def prefixed_param  = prefix ? :"#{prefix}_#{param}" : param
+        def prefixed_plural = prefix ? :"#{prefix}_#{plural}" : plural
+        def to_h            = { param:, to:, prefix:, plural: }
+        def with(**opts)    = self.class.new(**to_h.merge!(opts))
 
         private
 
@@ -280,10 +290,26 @@ module Boombox
         super
       end
 
+      def enum_decl
+        return if delegation.plural == false
+
+        EnumDelegateDecl.new(**delegation.to_h)
+      end
+
       def group          = delegation.to
       def initializable? = initializable
       def param          = delegation.param
       def prefixed_param = delegation.prefixed_param
+    end
+
+    ##
+    # Initializer class for EnumDelegate.
+    class EnumDelegateDecl < DelegateDecl
+      class << self
+        def instance_class = EnumDelegate
+      end
+
+      def prefixed_param = delegation.prefixed_plural
     end
   end
 end

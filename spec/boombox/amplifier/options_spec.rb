@@ -265,6 +265,41 @@ RSpec.describe Boombox::FastLRChainEngine do
                 end
         end
       end
+      context 'with parameters passed to the #chain engines directly' do
+        engine2 = engine.with(iv: 5.0, style: :european, type: :call)
+                        .with!(chain: [80, 90, 100, 110, 120].map do |strike|
+                                        { strike: }
+                                      end,
+                               ivs: Torch.tensor([0.3]))
+                        .with!(ivs: Torch.tensor([0.3]))
+        # .with!(chain: 5.times.map { {iv: 0.3} })
+        it 'should the #chain members\' parameters' do
+          params = engine2.param(:chain)
+                          .value.map do |actual|
+            actual.transform_values do |value|
+              case value
+              when Torch::Tensor then value.item
+              else
+                value
+              end
+            end
+          end
+          params.zip([80, 90, 100, 110, 120])
+                .each do |actual, strike|
+                  expect(actual)
+                    .to include(expiry: Time.new(2000, 1, 1) + 365 * 12 * 3600,
+                                iv: a_value_within(FLR_PRECISION).of(0.3),
+                                rate: a_value_within(FLR_PRECISION).of(0.07),
+                                spot: a_value_within(FLR_PRECISION).of(100),
+                                steps: 25,
+                                strike: a_value_within(FLR_PRECISION)
+                                          .of(strike),
+                                style: :european,
+                                time: Time.new(2000, 1, 1),
+                                type: :call)
+                end
+        end
+      end
     end
   end
 
@@ -277,6 +312,21 @@ RSpec.describe Boombox::FastLRChainEngine do
       engine.with!(chain: [80, 90, 100, 110, 120].map { |strike| { strike: } })
       it 'should compute European style call prices' do
         engine2 = engine.with(style: :european, type: :call)
+        engine2.solve_for(:value)
+               .map(&:item)
+               .zip([23.75799, 16.09963, 10.13377, 5.94946, 3.28280])
+               .each do |actual, target|
+                 expect(actual).to be_within(FLR_PRECISION).of(target)
+               end
+      end
+    end
+    context 'with template parameters passed directly to the chain engines' do
+      engine2 = engine.with(iv: 5.0, style: :european, type: :call)
+                      .with!(chain: [80, 90, 100, 110, 120].map do |strike|
+                                      { strike: }
+                                    end,
+                             ivs: Torch.tensor([0.3]))
+      it 'should compute European style call prices' do
         engine2.solve_for(:value)
                .map(&:item)
                .zip([23.75799, 16.09963, 10.13377, 5.94946, 3.28280])

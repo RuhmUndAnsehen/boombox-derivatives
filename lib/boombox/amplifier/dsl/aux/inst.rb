@@ -174,6 +174,16 @@ module Boombox
         end
       end
 
+      def params(name)
+        Proxy.new do |pxy|
+          pxy.define :initialized?, -> { raw_params(name).any?(&:initialized?) }
+          pxy.define :value,        -> { raw_params(name).map(&:value) }
+          pxy.define :value=,       lambda_params_assign(name)
+        end
+      end
+
+      def raw_params(name) = raw_value.map { |v| v.param(name) }
+
       def raw_value
         # rubocop:disable Naming/MemoizedInstanceVariableName
         @value ||= []
@@ -186,7 +196,7 @@ module Boombox
 
       def update_at(name, newval)
         template.with!(name => newval)
-        raw_value.each { |e| e.param(name).value = newval }
+        raw_params(name).each { |par| par.value = newval }
         newval
       end
       alias update update_at
@@ -201,6 +211,12 @@ module Boombox
       end
 
       def value = raw_value.map(&:to_h)
+
+      private
+
+      def lambda_params_assign(name)
+        ->(nv) { raw_params(name).zip(nv.cycle).map { |(p, v)| p.value = v } }
+      end
     end
 
     ##
@@ -227,6 +243,22 @@ module Boombox
 
       def value=(newval)
         target.value = newval
+      end
+    end
+
+    ##
+    # Delegates Engine parameters to another parameter, treating them as a
+    # collection.
+    #
+    # The main functional difference to Delegate is that Delegate works with
+    # singular values and, when updating, updates every target to the same
+    # value. EnumDelegate, however, treats values as collections and will
+    # assign every collection member to the respective EngineGroup child.
+    class EnumDelegate < Delegate
+      def instantiated(engine)
+        super
+        @target = group.params(param)
+        self
       end
     end
   end
