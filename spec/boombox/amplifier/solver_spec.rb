@@ -160,3 +160,24 @@ RSpec.describe Boombox::OptionsSolver do
     end
   end
 end
+
+RSpec.describe Boombox::OptionsChainSolver do
+  describe '#solve' do
+    engine = Boombox::FastLRChainEngine.new(
+      chain: [80, 90, 100, 110, 120].map { |strike| { strike: } },
+      expiry: Time.new(2000, 1, 1) + 365 * 12 * 3600,
+      iv: 0.3, rate: 0.07, spot: 100, steps: 853, time: Time.new(2000, 1, 1)
+    )
+    contract_value = Torch.tensor([23.75799, 16.09963, 10.13377, 5.94946,
+                                   3.28280])
+    solver = described_class.new(a0: Torch.tensor([3e-2]),
+                                 b0: Torch.tensor([0.5]),
+                                 contract_value:, engine:, param: :iv)
+    it 'should accurately solve multiple problems at the same time' do
+      solver.solve.map(&:item)
+            .each do |result|
+        expect(result).to be_within(SOLV_PRECISION).of(0.3)
+      end
+    end
+  end
+end

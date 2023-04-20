@@ -180,4 +180,111 @@ module Boombox
       with(param:).solve(&block)
     end
   end
+
+  ##
+  # Solver for multiple options at the same time.
+  #
+  # This class assumes that #engine supports Torch::Tensor as parameters and
+  # return values.
+  class OptionsChainSolver < OptionsSolver
+    ##
+    # Specialization of DekkerBrentSolver::State for Torch::Tensor computations.
+    class State < DekkerBrentSolver::State
+      def initialize(**_)
+        super
+
+        return unless [true, false].include?(bisect_flag)
+
+        self.bisect_flag = Torch.full_like(a_k || b_k, bisect_flag ? 1 : 0,
+                                           dtype: :bool)
+      end
+
+      def assert_unequal_signs
+        if f_ak.sign.int.eq(f_bk.sign.int).any?(&:item)
+          raise DekkerBrentSolver::EqualSignsError
+        end
+
+        self
+      end
+
+      def bisect = a_k.add(b_k).div!(2)
+
+      def conditional_bisect
+        sec = secant
+        self.bisect_flag = bisect_condition(sec)
+        bisect.where(bisect_flag, sec)
+      end
+
+      def convergence? = super.all?(&:item)
+      def diffquot_bk  = d_bk.div!(d_fbk)
+
+      def sanitize
+        invalids = f_bk.abs.gt(f_ak.abs)
+
+        new_a_k  = a_k.where(invalids, b_k)
+        new_b_k  = b_k.where(invalids, a_k)
+        new_f_ak = f_ak.where(invalids, f_bk)
+        new_f_bk = f_bk.where(invalids, f_ak)
+
+        with!(a_k: new_a_k, b_k: new_b_k, f_ak: new_f_ak, f_bk: new_f_bk)
+      end
+
+      def secant = secant_intp.where(secant_cond?, secant_grad)
+      def tolerable?(arg) = arg.abs.le(tolerance)
+
+      def update(secant, f_s)
+        nans  = secant.isnan
+        cond  = update?(f_s).logical_or!(nans)
+        icond = cond.logical_not.logical_or!(nans)
+
+        new_a_k  = a_k.where(cond, secant)
+        new_b_k  = b_k.where(icond, secant)
+        new_f_ak = f_ak.where(cond, f_s)
+        new_f_bk = f_bk.where(icond, f_s)
+
+        with!(a_k: new_a_k, b_k: new_b_k, f_ak: new_f_ak, f_bk: new_f_bk)
+      end
+
+      def update?(f_s) = f_ak.mul(f_s).lt(0)
+
+      private
+
+      def bisect_condition(secant)
+        bs_cond_first(secant)
+          .logical_or!(bisect?.logical_and(bs_cond_helper(secant, d_bk)))
+          .logical_or!(bisect?.logical_not
+                              .logical_and(bs_cond_helper(secant, d_bkm1)))
+      end
+
+      def bs_cond_first(secant)
+        bs_cond_intp.sub!(secant).sign!.int
+                    .ne(secant.sub(b_k).sign!.int)
+      end
+
+      def bs_cond_helper(secant, d_bkx)
+        secant.sub(b_k).abs!
+              .ge(d_bkx.abs.div!(2))
+              .logical_or!(tolerable?(d_bkx))
+      end
+
+      def bs_cond_intp = b_k.add(a_k, alpha: 3).div!(4)
+
+      def interp_term(val, fval, foth1, foth2)
+        val.mul(foth1).mul!(foth2)
+           .div!(fval.sub(foth1))
+           .div!(fval.sub(foth2))
+      end
+
+      def secant_cond? = f_ak.ne(f_bk).logical_and!(f_bk.ne(f_bkm1))
+      def secant_grad  = f_bk.addcmul(f_bk, diffquot_bk, value: -1)
+      def secant_intp  = i1.add(i2).add!(i3)
+    end
+
+    class << self
+      def new_state(*args, **opts, &block) = State.new(*args, **opts, &block)
+    end
+
+    param :param, default: :iv, is: Symbol,
+                  to: ->(prm) { ActiveSupport::Inflector.pluralize(prm).to_sym }
+  end
 end
