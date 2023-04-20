@@ -63,7 +63,7 @@ module Boombox
       def engine_groups = params.select { |obj| obj.is_a?(EngineGroup) }
       def initialized? = params.any?(&:initialized?)
       def initialized_params = params.select(&:initialized?)
-      def new(**args) = self.class.new(**to_h.merge!(args))
+      def new(**args) = self.class.new(**to_h).with!(**args)
 
       def param(name)
         decl = name.is_a?(BaseDecl) ? name : self.class[name]
