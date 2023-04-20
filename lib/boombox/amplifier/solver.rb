@@ -125,7 +125,7 @@ module Boombox
     param :a0
     param :b0
     param :max_iterations, default: 42, is: :positive?
-    param :tolerance, default: 1e-6, is_not: :negative?
+    param :tolerance, default: 1e-5, is_not: :negative?
 
     def _fn(*args, **opts, &block)
       unless @_fn
