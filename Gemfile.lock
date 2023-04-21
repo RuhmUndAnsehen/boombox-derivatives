@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    boombox-amplifier (0.1.0)
+    boombox-derivatives (0.1.0)
       activesupport
       torch-rb
 
@@ -64,7 +64,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
-  boombox-amplifier!
+  boombox-derivatives!
   rake (~> 13.0)
   rspec
   rubocop (~> 1.7)

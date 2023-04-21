@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'boombox/amplifier/options'
+require 'boombox/derivatives/options'
 
 LR_PRECISION = 1e-5
 

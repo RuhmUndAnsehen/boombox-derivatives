@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'boombox/amplifier/options'
-require 'boombox/amplifier/solver'
+require 'boombox/derivatives/options'
+require 'boombox/derivatives/solver'
 
 SOLV_PRECISION = 1e-6
 

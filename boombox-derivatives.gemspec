@@ -1,23 +1,23 @@
 # frozen_string_literal: true
 
-require_relative 'lib/boombox/amplifier/version'
+require_relative 'lib/boombox/derivatives/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = 'boombox-amplifier'
-  spec.version       = Boombox::Amplifier::VERSION
+  spec.name          = 'boombox-derivatives'
+  spec.version       = Boombox::Derivatives::VERSION
   spec.authors       = ['RuhmUndAnsehen']
   spec.email         = ['97001540+RuhmUndAnsehen@users.noreply.github.com']
 
   spec.summary       = 'Financial instrument library for the Boombox software'
   # spec.description   = 'TODO: Write a longer description or delete this line.'
-  spec.homepage      = 'https://github.com/RuhmUndAnsehen/boombox-amplifier'
+  spec.homepage      = 'https://github.com/RuhmUndAnsehen/boombox-derivatives'
   spec.required_ruby_version = '>= 3.1'
 
   spec.metadata['allowed_push_host'] = 'TODO: Set to \'https://mygemserver.com\''
 
   spec.metadata['homepage_uri'] = spec.homepage
-  spec.metadata['source_code_uri'] = 'https://github.com/RuhmUndAnsehen/boombox-amplifier'
-  spec.metadata['changelog_uri'] = 'https://github.com/RuhmUndAnsehen/boombox-amplifier/blob/main/CHANGELOG.md'
+  spec.metadata['source_code_uri'] = 'https://github.com/RuhmUndAnsehen/boombox-derivatives'
+  spec.metadata['changelog_uri'] = 'https://github.com/RuhmUndAnsehen/boombox-derivatives/blob/main/CHANGELOG.md'
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added

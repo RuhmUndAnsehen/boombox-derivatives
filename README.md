@@ -1,4 +1,4 @@
-# Boombox::Amplifier
+# Boombox::Derivatives
 
 Financial instrument library for Boombox
 
@@ -13,7 +13,7 @@ Financial instrument library for Boombox
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'boombox-amplifier'
+gem 'boombox-derivatives'
 ```
 
 And then execute:
@@ -22,7 +22,7 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install boombox-amplifier
+    $ gem install boombox-derivatives
 
 ## Usage
 
@@ -36,7 +36,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/RuhmUndAnsehen/boombox-amplifier.
+Bug reports and pull requests are welcome on GitHub at https://github.com/RuhmUndAnsehen/boombox-derivatives.
 
 ## License
 
