@@ -16,7 +16,6 @@
 #    with Boombox Derivatives. If not, see <https://www.gnu.org/licenses/>.
 
 require 'observer'
-require 'set'
 
 require 'active_support/inflector'
 
@@ -62,7 +61,8 @@ module Boombox
 
           define_method(default_method_name(name)) do
             return send(setter, instance_exec(&block)) if block
-            return send(setter, opts[:default].dup)    if opts.key?(:default)
+
+            send(setter, opts[:default].dup)           if opts.key?(:default)
           end
         end
       end

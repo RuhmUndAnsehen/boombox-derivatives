@@ -10,6 +10,9 @@ AllCops:
   SuggestExtensions: false
   TargetRubyVersion: 3.2
 
+Metrics/AbcSize:
+  CountRepeatedAttributes: false
+
 Style/StringLiterals:
   Enabled: true
   EnforcedStyle: single_quotes

@@ -207,7 +207,7 @@ module Boombox
         else
           raise TypeError, "unsupported value type: #{newval.class}"
         end
-        newval
+        newval # rubocop:disable Lint/Void
       end
 
       def value = raw_value.map(&:to_h)
